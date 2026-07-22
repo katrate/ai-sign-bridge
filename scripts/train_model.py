@@ -64,14 +64,15 @@ X_train, X_test, y_train, y_test = train_test_split(
 print(f"[INFO] Train size: {len(X_train)}, Test size: {len(X_test)}")
 
 # ------------ Train Model ------------
-print("\n[INFO] Training RandomForestClassifier...")
-model = RandomForestClassifier(n_estimators=150, random_state=42, n_jobs=-1)
+print("[INFO] Training RandomForestClassifier...")
+model = RandomForestClassifier(n_estimators=100, random_state=42, n_jobs=-1)
 model.fit(X_train, y_train)
 
 # ------------ Evaluate ------------
 y_pred = model.predict(X_test)
-accuracy = accuracy_score(y_test, y_pred)
-print(f"\n[RESULT] Test Accuracy: {accuracy * 100:.2f}%")
+acc = accuracy_score(y_test, y_pred)
+print(f"\n[RESULT] Test Accuracy: {acc*100:.2f}%")
+
 print("\n[RESULT] Classification Report:")
 print(classification_report(y_test, y_pred, target_names=le.classes_))
 
@@ -82,7 +83,7 @@ joblib.dump(le, ENCODER_PATH)
 print(f"\n[SAVED] Model   -> {MODEL_PATH}")
 print(f"[SAVED] Encoder -> {ENCODER_PATH}")
 
-if accuracy < 0.90:
+if acc < 0.90:
     print("\n[WARNING] Accuracy below 90%. Consider:")
     print("  1. Collecting more data per sign (aim for 200+ frames each)")
     print("  2. Varying hand angles while collecting")

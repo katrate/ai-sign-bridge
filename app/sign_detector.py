@@ -26,7 +26,7 @@ class SignDetector(QThread):
 
     MODEL_PATH = "models/gesture_model.pkl"
     ENCODER_PATH = "models/label_encoder.pkl"
-    BUFFER_SIZE = 5  # Frames needed before confirming a prediction
+    BUFFER_SIZE = 10  # Frames needed before confirming a prediction
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -81,25 +81,22 @@ class SignDetector(QThread):
                         mp_style.get_default_hand_connections_style()
                     )
 
-                    # Extract 42 features (X, Y only, relative to wrist for translation invariance)
-                    # Extract 63 features: X, Y, Z for all 21 landmarks
-                    # with Bounding Box Normalization (position + scale invariant)
+                    # Extract 42 features: X, Y for all 21 landmarks
+                    # with aspect-ratio preserving Bounding Box Normalization
                     x_coords = [lm.x for lm in hand_landmarks.landmark]
                     y_coords = [lm.y for lm in hand_landmarks.landmark]
-                    z_coords = [lm.z for lm in hand_landmarks.landmark]
-
-                    def bbox_norm(vals):
-                        mn, mx = min(vals), max(vals)
-                        r = mx - mn if mx > mn else 1.0
-                        return [(v - mn) / r for v in vals]
-
-                    x_n = bbox_norm(x_coords)
-                    y_n = bbox_norm(y_coords)
-                    z_n = bbox_norm(z_coords)
+                    min_x, max_x = min(x_coords), max(x_coords)
+                    min_y, max_y = min(y_coords), max(y_coords)
+                    
+                    range_x = max_x - min_x
+                    range_y = max_y - min_y
+                    max_range = max(range_x, range_y)
+                    if max_range == 0:
+                        max_range = 1.0
 
                     row = []
-                    for x, y, z in zip(x_n, y_n, z_n):
-                        row.extend([x, y, z])
+                    for x, y in zip(x_coords, y_coords):
+                        row.extend([(x - min_x) / max_range, (y - min_y) / max_range])
 
                     # Predict
                     features = np.array(row).reshape(1, -1)
@@ -107,6 +104,9 @@ class SignDetector(QThread):
                     pred_idx = np.argmax(proba)
                     confidence = float(proba[pred_idx])
                     label = self.label_encoder.inverse_transform([pred_idx])[0]
+
+                    # Debug raw prediction
+                    print(f"[DEBUG] Raw pred: {label} (conf: {confidence:.2f})")
 
                     # Smoothing buffer
                     self._buffer.append(label)
@@ -116,7 +116,7 @@ class SignDetector(QThread):
                     if len(self._buffer) == self.BUFFER_SIZE:
                         most_common, freq = Counter(self._buffer).most_common(1)[0]
                         if freq >= self.BUFFER_SIZE * 0.6:  # 60% agreement
-                            if most_common != self._last_spoken and confidence > 0.60:
+                            if most_common != self._last_spoken and confidence > 0.50:
                                 self._last_spoken = most_common
                                 self.prediction_ready.emit(most_common, confidence)
                                 self._buffer.clear()  # Start fresh for the next sign
