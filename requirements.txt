@@ -1,0 +1,10 @@
+opencv-python
+mediapipe==0.10.14
+scikit-learn
+numpy
+pyttsx3
+vosk
+PyQt6
+joblib
+sounddevice
+pandas
